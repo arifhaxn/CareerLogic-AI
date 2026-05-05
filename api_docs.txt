@@ -1,0 +1,158 @@
+--- PDF 1 ---
+🧠  Understanding  Your  Current  System  
+You  now  have  3  major  backend  modules:  
+Auth  Resume  AI  
+I’ll  document  them  like  a  real  API  spec.  
+ 
+📦  1.  AUTH  APIs  
+ 
+🔐  1.  Register  User  
+Endpoint  POST  /api/auth/register  
+What  it  does  
+Creates  a  new  user  account.  
+ 
+Body  (Frontend  sends)  {   "name":  "Rifat",   "email":  "rifat@gmail.com",   "password":  "123456"  }   
+Response  {   "success":  true,   "token":  "JWT_TOKEN"  }   
+ 
+🔐  2.  Login  User  
+Endpoint  POST  /api/auth/login   
+Body  {   "email":  "rifat@gmail.com",   "password":  "123456"  }   
+Response  {   "success":  true,   "token":  "JWT_TOKEN"  }   
+⚠  IMPORTANT  (Frontend  MUST  DO)  
+After  login/register:  
+Store  token  and  send  in  ALL  protected  routes:  
+Authorization:  Bearer  JWT_TOKEN   
+📦  2.  RESUME  APIs  
+ 
+🧾  1.  Create  Resume  
+Endpoint  POST  /api/resumes   
+What  it  does  
+Creates  an  empty  resume  for  the  user.  
+ 
+Body  {   "title":  "My  Resume"  }   
+Response  {   "success":  true,   "data":  {  ...resumeObject  }  }   
+📄  2.  Get  All  Resumes  
+Endpoint  GET  /api/resumes   
+What  it  does  
+Fetch  all  resumes  of  logged-in  user.  
+ 
+Body  
+❌  none  
+ 
+📄  3.  Get  Single  Resume  
+Endpoint  GET  /api/resumes/:id   
+What  it  does  
+Fetch  one  resume  with  all  details.  
+ 
+ 
+✏  4.  Update  Resume  (Summary,  Title,  etc.)  
+Endpoint  PUT  /api/resumes/:id   
+Body  {   "title":  "Updated  Title",   "summary":  "I  am  a  frontend  developer..."  }  
+ 
+❌  5.  Delete  Resume  
+Endpoint  DELETE   /api/resumes/:id   
+🧩  EXPERIENCE  APIs  
+ 
+➕  Add  Experience  
+Endpoint  POST  /api/resumes/:id/experience   
+Body  {   "company":  "Google",   "position":  "Frontend  Developer",   "bullets":  [     "Built  UI  components",     "Improved  performance"   ]  }  
+ 
+ 
+✏  Update  Experience  
+Endpoint  PUT  /api/resumes/:id/experience/:expId   
+Body  {   "company":  "Meta",   "position":  "Senior  Dev",   "bullets":  ["Updated  bullet"]  }  
+ 
+❌  Delete  Experience  
+Endpoint  DELETE  /api/resumes/:id/experience/:expId  
+ 
+🤖  3.  AI  APIs  (MOST  IMPORTANT)  
+ 
+🧠  1.  Generate  Summary  
+Endpoint  POST  /api/ai/generate-summary   
+What  it  does  
+Generates  a  professional  resume  summary  using  AI.  
+ 
+Body  {   "jobTitle":  "Frontend  Developer",   "experienceLevel":  "Junior",   "skills":  ["React",  "Node.js",  "MongoDB"]  }   
+Response  {   "success":  true,   "data":  {     "summary":  "Frontend  developer  with  experience..."   }  }   
+🧠  2.  Tailor  Resume  ( 🔥  Core  Feature)  
+ 
+Endpoint  POST  /api/ai/tailor-resume   
+What  it  does  
+●  Takes  resume  +  job  description  ●  AI  improves  summary  &  experience  ●  RETURNS  suggestions  (does  NOT  save)  
+ 
+Body  {   "resumeId":  "RESUME_ID",   "jobDescription":  "We  are  looking  for  a  React  developer..."  }   
+Response  {   "success":  true,   "data":  {     "summary":  "Improved  summary...",     "experiences":  [       {         "experienceId":  "EXP_ID",         "bullets":  [           "Optimized  React  app  improving  performance  by  30%"         ]       }     ]   }  }   
+⚠  VERY  IMPORTANT  (Frontend  Logic)  
+Frontend  should:  
+●  show  suggestions  ●  allow  user  to  review  ●  NOT  auto-save  
+ 
+🧠  3.  Apply  AI  Changes  
+ 
+Endpoint  POST  /api/ai/apply-tailor   
+What  it  does  
+Takes  AI  suggestions  and  updates  DB.  
+ 
+Body  {   "resumeId":  "RESUME_ID",   "summary":  "Improved  summary...",   "experiences":  [     {       "experienceId":  "EXP_ID",       "bullets":  [         "Improved  bullet  1",         "Improved  bullet  2"       ]     }   ]  }   
+Response  {   "success":  true,   "data":  {  updatedResume  }  }   
+🧠  Frontend  Flow  (VERY  IMPORTANT)  
+Tell  your  friend  this  EXACT  flow:  
+ 
+Step  1  
+Create  resume  
+Step  2  
+Add  experiences  
+Step  3  
+Generate  summary  (optional  AI)  
+Step  4  ( 🔥  MAIN  FEATURE)  
+Send:  
+resumeId  +  jobDescription  
+to:  
+/ai/tailor-resume   
+Step  5  
+Show:  
+●  old  vs  new  summary  ●  old  vs  new  bullets  
+ 
+Step  6  
+User  clicks:  
+"Apply  Changes"   
+Step  7  
+Call:  
+/ai/apply-tailor   
+🧠  Final  System  View  
+You’ve  built:  
+CRUD  System     +  AI  Suggestion  Engine     +  User-Controlled  AI  Application  
+ 
+--- PDF 2 ---
+ 
+4 ⃣  /analyze-resume  
+✅  What  it  does:  
+●  Gives  ATS-style  analysis  (score,  feedback,  missing  keywords)  
+📤  Body:  
+{   "resumeId":  "64abc123...",   "jobDescription":  "Looking  for  MERN  stack  developer..."  }  
+📥  Response:  
+{   "score":  75,   "missingKeywords":  ["MongoDB",  "Express"],   "suggestions":  ["Add  more  backend  experience"]  }    
+5 ⃣  /full-analysis  
+✅  What  it  does  (VERY  IMPORTANT  🚀 ):  
+This  is  the  best  feature  
+It  returns:  
+●  BEFORE  score  ●  AFTER  score  (after  AI  improvements)  ●  Suggested  improvements  
+📤  Body:  
+{   "resumeId":  "64abc123...",   "jobDescription":  "Frontend  React  Developer..."  }  
+📥  Response:  
+{   "before":  {  "score":  65  },   "after":  {  "score":  85  },   "improvements":  {     "summary":  "...",     "experiences":  [...]   }  }     
+6 ⃣  /upload-resume  
+✅  What  it  does:  
+●  Upload  PDF  ●  Extract  text  ●  AI  parses  into  structured  data  
+📤  Body  (FORM-DATA  ⚠ ):  
+key:  resume  value:  (PDF  file)  
+Example  (frontend):  const  formData  =  new  FormData();  formData.append("resume",  file);   await  axios.post("/upload-resume",  formData);  
+📥  Response:  
+{   "title":  "Parsed  Resume",   "summary":  "...",   "skills":  ["React",  "Node"],   "experience":  [],   "education":  [],   "projects":  []  }   
+ 
+7 ⃣  /from-upload  
+✅  What  it  does:  
+Takes  parsed  AI  data  →  saves  into  DB  
+📤  Body:  
+{   "title":  "My  Resume",   "summary":  "...",   "skills":  ["React",  "Node"],   "experience":  [],   "education":  [],   "projects":  []  }  
+📥  Response:  
+{   "success":  true,   "data":  {  ...savedResume  }  }   

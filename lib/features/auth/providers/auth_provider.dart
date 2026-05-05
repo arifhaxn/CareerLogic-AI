@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import '../models/user_model.dart'; // 1. Added the import for your new model
+import 'package:shared_preferences/shared_preferences.dart';
+import '../models/user_model.dart';
 import '../services/auth_service.dart';
 
 class AuthProvider extends ChangeNotifier {
@@ -9,38 +10,70 @@ class AuthProvider extends ChangeNotifier {
   UserModel? _currentUser;
   String? _errorMessage;
 
-  // Getters for the UI to consume
   bool get isLoading => _isLoading;
-  bool get isAuthenticated =>
-      _currentUser != null; // 2. Updated to check the model, not the token
-  UserModel? get currentUser =>
-      _currentUser; // 3. Added getter so your UI can access the user's data
+  bool get isAuthenticated => _currentUser != null;
+  UserModel? get currentUser => _currentUser;
   String? get errorMessage => _errorMessage;
+
+  // --- NEW: Check for saved session on startup ---
+  Future<void> checkAuthStatus() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('auth_token');
+    
+    if (token != null) {
+      _currentUser = UserModel(
+        id: prefs.getString('user_id') ?? '',
+        name: prefs.getString('user_name') ?? 'User',
+        email: prefs.getString('user_email') ?? '',
+        token: token,
+      );
+      notifyListeners();
+    }
+  }
+
+  // --- NEW: Helper method to save session ---
+  Future<void> _saveSession(UserModel user) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('auth_token', user.token);
+    await prefs.setString('user_id', user.id);
+    await prefs.setString('user_name', user.name);
+    await prefs.setString('user_email', user.email);
+  }
+
+  // --- NEW: Helper method to clear session ---
+  Future<void> _clearSession() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('auth_token');
+    await prefs.remove('user_id');
+    await prefs.remove('user_name');
+    await prefs.remove('user_email');
+  }
 
   Future<bool> login(String email, String password) async {
     _setLoading(true);
     _clearError();
 
     try {
-      final token = await _authService.login(email, password);
-      if (token != null) {
-        // 4. Construct a mock UserModel with the returned token
+      final responseData = await _authService.login(email, password);
+
+      if (responseData != null && responseData['token'] != null) {
         _currentUser = UserModel(
-          id: 'mock_id_123',
-          name:
-              'CareerLogic User', // Placeholder name until the backend returns real data
-          email: email,
-          token: token,
+          id: responseData['user']?['_id'] ?? '',
+          name: responseData['user']?['name'] ?? 'User',
+          email: responseData['user']?['email'] ?? email,
+          token: responseData['token'],
         );
-        // TODO: Later, we will save this token to shared_preferences for offline caching[cite: 1]
-        _setLoading(false);
+        await _saveSession(_currentUser!); // Save to device!
         return true;
+      } else {
+        _errorMessage = 'Login succeeded, but the token was missing.';
+        return false;
       }
-      return false;
     } catch (e) {
       _errorMessage = e.toString();
-      _setLoading(false);
       return false;
+    } finally {
+      _setLoading(false);
     }
   }
 
@@ -49,30 +82,34 @@ class AuthProvider extends ChangeNotifier {
     _clearError();
 
     try {
-      final token = await _authService.register(name, email, password);
-      if (token != null) {
-        // 5. Construct a mock UserModel for the new user
+      final responseData = await _authService.register(name, email, password);
+
+      if (responseData != null && responseData['token'] != null) {
         _currentUser = UserModel(
-          id: 'mock_id_123',
-          name: name,
-          email: email,
-          token: token,
+          id: responseData['user']?['_id'] ?? '',
+          name: responseData['user']?['name'] ?? name,
+          email: responseData['user']?['email'] ?? email,
+          token: responseData['token'],
         );
-        _setLoading(false);
+        await _saveSession(_currentUser!); // Save to device!
         return true;
+      } else {
+        _errorMessage = 'Registration succeeded, but the token was missing.';
+        return false;
       }
-      return false;
     } catch (e) {
       _errorMessage = e.toString();
-      _setLoading(false);
       return false;
+    } finally {
+      _setLoading(false);
     }
   }
 
   void logout() async {
     _setLoading(true);
     await _authService.logout();
-    _currentUser = null; // 6. Clear the user model on logout
+    _currentUser = null;
+    await _clearSession(); // Delete from device!
     _setLoading(false);
   }
 
