@@ -28,6 +28,8 @@ class _ResumeEditorScreenState extends State<ResumeEditorScreen> {
 
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _summaryController = TextEditingController();
+  final TextEditingController _skillsController = TextEditingController();
+  List<Map<String, dynamic>> _educationList = [];
 
   @override
   void initState() {
@@ -39,6 +41,7 @@ class _ResumeEditorScreenState extends State<ResumeEditorScreen> {
   void dispose() {
     _titleController.dispose();
     _summaryController.dispose();
+    _skillsController.dispose();
     super.dispose();
   }
 
@@ -52,8 +55,8 @@ class _ResumeEditorScreenState extends State<ResumeEditorScreen> {
           : _resume!.title,
       summary: _summaryController.text.trim(),
       experiences: _resume!.experiences,
-      skills: _resume!.skills,
-      education: _resume!.education,
+      skills: _skillsController.text.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList(),
+      education: _educationList,
       projects: _resume!.projects,
     );
   }
@@ -68,6 +71,8 @@ class _ResumeEditorScreenState extends State<ResumeEditorScreen> {
         _resume = resume;
         _titleController.text = resume.title;
         _summaryController.text = resume.summary;
+        _skillsController.text = resume.skills.join(', ');
+        _educationList = List<Map<String, dynamic>>.from(resume.education);
         _isLoading = false;
       });
     } catch (e) {
@@ -81,12 +86,14 @@ class _ResumeEditorScreenState extends State<ResumeEditorScreen> {
   Future<void> _saveBasicInfo() async {
     final token = Provider.of<AuthProvider>(context, listen: false).currentUser?.token ?? '';
     try {
-      // Calls PUT /api/resumes/:id
+      // Calls PATCH/PUT /api/resumes/:id
       final updatedResume = await _resumeService.updateResumeInfo(
         token, 
         widget.resumeId, 
         _titleController.text.trim(), 
         _summaryController.text.trim(),
+        _skillsController.text.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList(),
+        _educationList,
       );
       setState(() {
         _resume = updatedResume;
@@ -120,6 +127,67 @@ class _ResumeEditorScreenState extends State<ResumeEditorScreen> {
         );
       }
     }
+  }
+
+  void _showEducationModal({int? editIndex}) {
+    final institutionCtrl = TextEditingController(
+      text: editIndex != null ? _educationList[editIndex]['institution']?.toString() : ''
+    );
+    final degreeCtrl = TextEditingController(
+      text: editIndex != null ? _educationList[editIndex]['degree']?.toString() : ''
+    );
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(editIndex == null ? 'Add Education' : 'Edit Education'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: institutionCtrl,
+              decoration: const InputDecoration(labelText: 'Institution', hintText: 'e.g. MIT'),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: degreeCtrl,
+              decoration: const InputDecoration(labelText: 'Degree / Qualification', hintText: 'e.g. BSc Computer Science'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              setState(() {
+                final entry = {
+                  'institution': institutionCtrl.text.trim(),
+                  'degree': degreeCtrl.text.trim(),
+                };
+                if (editIndex == null) {
+                  _educationList.add(entry);
+                } else {
+                  _educationList[editIndex] = entry;
+                }
+              });
+              Navigator.pop(context);
+              _saveBasicInfo(); // Auto-save
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _deleteEducation(int index) {
+    setState(() {
+      _educationList.removeAt(index);
+    });
+    _saveBasicInfo();
   }
 
   void _showExperienceModal(BuildContext parentContext) {
@@ -345,6 +413,15 @@ class _ResumeEditorScreenState extends State<ResumeEditorScreen> {
               maxLines: 4,
               decoration: const InputDecoration(labelText: 'Professional Summary', border: OutlineInputBorder()),
             ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _skillsController,
+              decoration: const InputDecoration(
+                labelText: 'Skills (comma-separated)', 
+                border: OutlineInputBorder(),
+                hintText: 'e.g. Flutter, Dart, Firebase',
+              ),
+            ),
             const SizedBox(height: 32),
 
             // Experience Section
@@ -416,7 +493,61 @@ class _ResumeEditorScreenState extends State<ResumeEditorScreen> {
                     ),
                   );
                 },
+              ),
+            const SizedBox(height: 32),
+            
+            // Education Section
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('Education', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                TextButton.icon(
+                  onPressed: () => _showEducationModal(),
+                  icon: const Icon(Icons.add),
+                  label: const Text('Add Education'),
+                )
+              ],
+            ),
+            const Divider(),
+            
+            // Education List
+            if (_educationList.isEmpty)
+              Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(32.0),
+                  child: Text('No education added yet.', style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color?.withValues(alpha: 0.5))),
+                ),
               )
+            else
+              ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: _educationList.length,
+                itemBuilder: (context, index) {
+                  final edu = _educationList[index];
+                  return Card(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    child: ListTile(
+                      title: Text(edu['institution']?.toString() ?? 'Institution', style: const TextStyle(fontWeight: FontWeight.bold)),
+                      subtitle: Text(edu['degree']?.toString() ?? ''),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.edit, color: Colors.blue, size: 20),
+                            onPressed: () => _showEducationModal(editIndex: index),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.delete, color: Colors.red, size: 20),
+                            onPressed: () => _deleteEducation(index),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            const SizedBox(height: 80),
           ],
         ),
       ),

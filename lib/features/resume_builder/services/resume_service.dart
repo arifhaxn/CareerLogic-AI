@@ -82,12 +82,21 @@ class ResumeService {
     }
   }
 
-  // PATCH/PUT /api/resumes/:id - Update the main title, summary, and personalInfo
-  Future<ResumeModel> updateResumeInfo(String token, String resumeId, String title, String summary) async {
+  // PATCH/PUT /api/resumes/:id - Update the main title, summary, skills, education, and personalInfo
+  Future<ResumeModel> updateResumeInfo(
+    String token,
+    String resumeId,
+    String title,
+    String summary,
+    List<String> skills,
+    List<Map<String, dynamic>> education,
+  ) async {
     try {
       final body = jsonEncode({
         'title': title,
         'summary': summary,
+        'skills': skills,
+        'education': education,
         'personalInfo': {
           'name': '',
           'email': '',
